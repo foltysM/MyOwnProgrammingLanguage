@@ -1,8 +1,12 @@
 
+import org.antlr.v4.runtime.ParserRuleContext;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Stack;
 
 enum VarType {INT, REAL, STRING, ARRAY, UNKNOWN}
 
@@ -19,9 +23,8 @@ class Value {
 
 public class LLVMActions extends DwunastaBaseListener {
 
-    HashMap<String, VarType> variables = new HashMap<>();
-    Map<Integer, Value> array_memory = new HashMap<>();
-    List<Value> arrays = new ArrayList<>();
+    Boolean id = false;
+    Boolean take_global = false;
     Stack<Value> stack = new Stack<>();
     String value, function;
     Boolean global;
@@ -56,11 +59,11 @@ public class LLVMActions extends DwunastaBaseListener {
     @Override
     public void exitFblock(DwunastaParser.FblockContext ctx) {
         if (!localnames.containsKey(function)) {
-            LLVMGenerator.assign(set_variable(function, VarType.INT), "0");
+            LLVMGenerator.assign(set_variable(function, VarType.INT, take_global), "0");
         }
         LLVMGenerator.load("%" + function);
         LLVMGenerator.functionend();
-        localnames = new HashMap<String, VarType>();
+        localnames = new HashMap<>();
         global = true;
         //TODO do przemyślenia
     }
@@ -69,27 +72,34 @@ public class LLVMActions extends DwunastaBaseListener {
     @Override
     public void exitAssign(DwunastaParser.AssignContext ctx) {
         String ID = ctx.ID().getText();
-        Value v = stack.pop();
+        String a = ctx.getParent().getText();
+        String cf = ctx.ASSIGN().getText();
+        char ch = a.charAt(a.length()-2);
+        if(!id) {
+            Value v = stack.pop();
+            if (v.type == VarType.INT) {
+                LLVMGenerator.assign_i32(set_variable(ID, v.type, take_global), v.name);
+            }
+            if (v.type == VarType.REAL) {
+                LLVMGenerator.assign_double(set_variable(ID, v.type, take_global), v.name);
+            }
+            if (v.type == VarType.STRING) {
+                LLVMGenerator.assign_string(set_variable(ID, v.type, take_global), v.name);
+            }
+            if (v.type == VarType.ARRAY) {
+                LLVMGenerator.assign_array(set_variable(ID, v.type, take_global), v.name);
+            }
+        }
+        id = false;
 
-        if (v.type == VarType.INT) {
-            LLVMGenerator.assign_i32(set_variable(ID, v.type), v.name);
-        }
-        if (v.type == VarType.REAL) {
-            LLVMGenerator.assign_double(set_variable(ID, v.type), v.name);
-        }
-        if (v.type == VarType.STRING) {
-            LLVMGenerator.assign_string(set_variable(ID, v.type), v.name);
-        }
-        if (v.type == VarType.ARRAY) {
-            LLVMGenerator.assign_array(set_variable(ID, v.type), v.name);
-        }
+
         //todo inny assign!
     }
 
-    public String set_variable(String ID, VarType TYPE) {
+    public String set_variable(String ID, VarType TYPE, Boolean set_global) {
 
         String id;
-        if (global) {
+        if (global || set_global) {
             if (!globalnames.containsKey(ID)) {
                 globalnames.put(ID, TYPE);
                 if (TYPE == VarType.INT) {
@@ -135,6 +145,7 @@ public class LLVMActions extends DwunastaBaseListener {
 
     @Override
     public void exitId_assign(DwunastaParser.Id_assignContext ctx) {
+        id = true;
         if (ctx.ID() != null) {
             String ID = ctx.ID().getText();
 
@@ -154,10 +165,10 @@ public class LLVMActions extends DwunastaBaseListener {
 //            value = ctx.INT().getText();
 //        }
     }
-    /*@Override
+    @Override
     public void exitCall(DwunastaParser.CallContext ctx) {
         LLVMGenerator.call(ctx.ID().getText());
-    }*/
+    }
 
     @Override
     public void exitAssign_string(DwunastaParser.Assign_stringContext ctx) {
@@ -192,7 +203,7 @@ public class LLVMActions extends DwunastaBaseListener {
         String INT = ctx.INT().getText();
         if (global) {
             if (globalnames.containsKey(ID)) {
-                LLVMGenerator.icmp(set_variable(ID, VarType.INT), INT);
+                LLVMGenerator.icmp(set_variable(ID, VarType.INT, take_global), INT);
             } else {
                 ctx.getStart().getLine();
                 System.err.println("Line " + ctx.getStart().getLine() + ", unknown variable: " + ID);
@@ -212,30 +223,6 @@ public class LLVMActions extends DwunastaBaseListener {
     public void exitStart(DwunastaParser.StartContext ctx) {
         if (ctx.getParent() instanceof DwunastaParser.LoopContext) {
             LLVMGenerator.repeatend();
-        } else {
-//            String generated = LLVMGenerator.generate();
-//            System.out.println(generated);
-//            try {
-//                File myObj = new File("output.ll");
-//                if (myObj.createNewFile()) {
-//                    System.out.println("File created: " + myObj.getName());
-//                } else {
-//                    System.out.println("File already exists.");
-//                }
-//            } catch (IOException e) {
-//                System.out.println("An error occurred.");
-//                e.printStackTrace();
-//            }
-//
-//            try {
-//                FileWriter myWriter = new FileWriter("output.ll");
-//                myWriter.write(generated);
-//                myWriter.close();
-//                System.out.println("Successfully wrote to the file.");
-//            } catch (IOException e) {
-//                System.out.println("An error occurred.");
-//                e.printStackTrace();
-//            }
         }
     }
 
@@ -322,7 +309,7 @@ public class LLVMActions extends DwunastaBaseListener {
 //            variables.put(ID, VarType.INT);
 //            LLVMGenerator.declare_i32(ID);
 //        }
-        LLVMGenerator.scanf(set_variable(ID, VarType.INT));
+        LLVMGenerator.scanf(set_variable(ID, VarType.INT, take_global));
     }
 
 
@@ -339,24 +326,29 @@ public class LLVMActions extends DwunastaBaseListener {
         } else if (functions.contains(ID)) {
             LLVMGenerator.call(ID);
         }
+        if( !localnames.containsKey(ID) && globalnames.containsKey(ID))
+        {
+            take_global = true;
+        }
         value = "%" + (LLVMGenerator.reg - 1);
         if (type != null) {
             if (type == VarType.INT) {
-                LLVMGenerator.load_i32(set_variable(ID, type));
-                LLVMGenerator.printf_i32(set_variable(ID, type));
+                LLVMGenerator.load_i32(set_variable(ID, type, take_global));
+                LLVMGenerator.printf_i32(set_variable(ID, type, take_global));
             }
             if (type == VarType.REAL) {
-                LLVMGenerator.printf_double(set_variable(ID, type));
+                LLVMGenerator.printf_double(set_variable(ID, type, take_global));
             }
             if (type == VarType.STRING) {
-                LLVMGenerator.printf_string(set_variable(ID, type));
+                LLVMGenerator.printf_string(set_variable(ID, type, take_global));
             }
             if (type == VarType.ARRAY) {
-                LLVMGenerator.printf_array(set_variable(ID, type));
+                LLVMGenerator.printf_array(set_variable(ID, type, take_global));
             }
         } else {
             error(ctx.getStart().getLine(), "unknown variable " + ID);
         }
+        take_global = false;
 
     }
 

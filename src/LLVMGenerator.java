@@ -5,7 +5,6 @@ class LLVMGenerator{
    
    static String header_text = "";
    static String main_text = "";
-   static String const_text = "";
    static String buffer = "";
    static int reg = 1;
    static int main_reg = 1;
@@ -13,7 +12,7 @@ class LLVMGenerator{
    static int br_if = 0;
 
    static Stack<Integer> brstack = new Stack<>();
-   static Stack<Integer> brstack_if = new Stack<Integer>();
+   static Stack<Integer> brstack_if = new Stack<>();
 
    static void repeatstart(String repetitions){
       declare_r(Integer.toString(reg));
@@ -84,8 +83,6 @@ class LLVMGenerator{
    }
 
    static void printf_i32(String id){
-      // buffer += "%"+reg+" = load i32, i32* "+id+"\n";
-      // reg++;
       buffer += "%"+reg+" = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @strpi, i32 0, i32 0), i32 %"+(reg-1)+")\n";
       reg++;
    }
@@ -97,18 +94,6 @@ class LLVMGenerator{
       reg++;
    }
 
-
-
-//   static void declare_array(String id)
-//   {
-//      //main_text += "%"+id+" = alloca [6 x i8]\n";
-//   }
-
-//   static void assign_array(String id, int[] str)
-//   {
-//      buffer += "store [6 x i8] "+ Arrays.toString(str)+", [6 x i8]* %"+id+"\n";
-//   }
-
    static void declare_double(String id, Boolean global)
    {
       if( global ) {
@@ -116,13 +101,6 @@ class LLVMGenerator{
       }else {
          buffer += "%" + id + " = alloca double\n";
       }
-   }
-
-   static void print_array(String id)
-   {
-      buffer += "%"+reg+" = bitcast [6 x i8]* %"+id+" to i8*\n";
-      reg++;
-      buffer += "%"+reg+" = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.string, i32 0, i32 0), i8* %"+(reg-1)+")\n";
    }
 
    static void assign_i32(String id, String value){
@@ -133,12 +111,6 @@ class LLVMGenerator{
       buffer += "store double "+value+", double* "+id+"\n";
    }
 
-
-//   static void scanf_i32(String id){
-//      main_text += "%"+reg+" = load i32, i32* %"+id+"\n";
-//      reg++;
-//   }
-
    static void scanf(String id){
       buffer += "%"+reg+" = call i32 (i8*, ...) @__isoc99_scanf(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @strs, i32 0, i32 0), i32* "+id+")\n";
       reg++;
@@ -148,11 +120,6 @@ class LLVMGenerator{
       buffer += "%"+reg+" = call double (i8*, ...) @__isoc99_scanf(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @strs, double 0, double 0), double* %"+id+")\n";
       reg++;
    }
-
-//   static void scanf_double(String id){
-//      main_text += "%"+reg+" = load double, double* %"+id+"\n";
-//      reg++;
-//   }
 
    static void add_i32(String val1, String val2){
       buffer += "%"+reg+" = add i32 "+val1+", "+val2+"\n";
@@ -182,13 +149,6 @@ class LLVMGenerator{
 
    static void fptosi(String id){
       buffer += "%"+reg+" = fptosi double "+id+" to i32\n";
-      reg++;
-   }
-
-   static void declare_array(String id, String q)
-   {
-      const_text += "@__const.mult."+id+" = private unnamed_addr constant ["+q+" x i32] [i32 5, i32 5], align 4\n";
-      buffer += "A";
       reg++;
    }
 
@@ -228,14 +188,6 @@ class LLVMGenerator{
    static void close_main(){
       main_text += buffer;
    }
-
-//   static void declare(String id, Boolean global){
-//      if( global ){
-//         header_text += "@"+id+" = global i32 0\n";
-//      } else {
-//         buffer += "%"+id+" = alloca i32\n";
-//      }
-//   }
 
    static void declare_i32(String id, Boolean global){
       if( global ){
@@ -319,7 +271,4 @@ class LLVMGenerator{
       buffer += "%"+reg+" = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.string, i32 0, i32 0), i8* %"+(reg-1)+")\n";
       reg++;
    }
-
-
-
 }
