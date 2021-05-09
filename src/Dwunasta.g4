@@ -3,7 +3,7 @@ grammar Dwunasta;
 prog: start
     ;
 
-start: (( expr SEMICOLON ) | function )*
+start: (( expr SEMICOLON ) | function | (struct SEMICOLON))*
 ;
 
 expr:
@@ -18,6 +18,15 @@ expr:
 ;
 
 
+struct: STRUCTURE ID '{' struct_block '}' # struct_delaration
+       | STRUCTURE ID ID # structure_call
+    ;
+
+declaration: ID
+    ;
+
+struct_block: (declaration SEMICOLON)*
+    ;
 
 
 function: BEGINFUNCTION fparam fblock ENDFUNCTION
@@ -95,10 +104,13 @@ CASTINT: '(int)'
 ASSIGN: '='
     ;
 
+STRUCTURE: 'struct'
+    ;
+
 CASTREAL: '(real)'
     ;
 
-ID:   ('a'..'z'|'A'..'Z')+
+ID:   ('a'..'z'|'A'..'Z'|'.')+
    ;
 
 REAL: '0'..'9'+'.''0'..'9'+
@@ -122,5 +134,8 @@ STRING :  '"' ( ~('\\'|'"') )* '"'
 WS:   [ \t\r\n]+ -> skip
     ;
 
+STRUCTEND : 'endstr'
+    ;
 
-
+STRUCTSTART : 'startstr'
+    ;

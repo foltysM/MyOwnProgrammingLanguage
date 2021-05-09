@@ -1,9 +1,7 @@
-
-import org.antlr.v4.runtime.ParserRuleContext;
-
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Stack;
@@ -24,6 +22,7 @@ class Value {
 public class LLVMActions extends DwunastaBaseListener {
 
     Boolean id = false;
+    String last_struct;
     Boolean take_global = false;
     Stack<Value> stack = new Stack<>();
     String value, function;
@@ -31,6 +30,8 @@ public class LLVMActions extends DwunastaBaseListener {
     HashMap<String, VarType> globalnames = new HashMap<>();
     HashSet<String> functions = new HashSet<>();
     HashMap<String, VarType> localnames = new HashMap<>();
+    ArrayList<String> structures = new ArrayList<>();
+    ArrayList<ArrayList<String>> structure_variables = new ArrayList<>();
 
     @Override
     public void exitRepetitions(DwunastaParser.RepetitionsContext ctx) {
@@ -52,6 +53,55 @@ public class LLVMActions extends DwunastaBaseListener {
     }
 
     @Override
+    public void enterStruct_block(DwunastaParser.Struct_blockContext ctx) {
+        //TODO dodanie nazwy struktury do listy struktur
+
+    }
+
+    @Override
+    public void exitDeclaration(DwunastaParser.DeclarationContext ctx) {
+        String name = ctx.ID().getText();
+        int which = structures.indexOf(last_struct);
+        if (structure_variables.size() <= which) {
+            //creates a list
+            structure_variables.add(new ArrayList<>());
+        }
+        structure_variables.get(which).add(name);
+    }
+
+    @Override
+    public void enterStruct_delaration(DwunastaParser.Struct_delarationContext ctx) {
+        String name = ctx.ID().getText();
+        structures.add(name);
+        last_struct = name;
+    }
+
+    @Override
+    public void exitStruct_delaration(DwunastaParser.Struct_delarationContext ctx) {
+        System.out.println("debug");
+    }
+
+    @Override
+    public void exitStruct_block(DwunastaParser.Struct_blockContext ctx) {
+        //String vars = ctx;
+        //todo
+    }
+
+    @Override
+    public void exitStructure_call(DwunastaParser.Structure_callContext ctx) {
+        String object_name = ctx.ID(1).getText();
+        String structure_name = ctx.ID(0).getText();
+        int which_structure = structures.indexOf(structure_name);
+        for (int i = 0; i < structure_variables.get(which_structure).size(); i++) {
+            LLVMGenerator.declare_i32(object_name + "." + structure_variables.get(which_structure).get(i), global);
+            globalnames.put(object_name + "." + structure_variables.get(which_structure).get(i), VarType.INT);
+
+        }//todo póki co działa tylko na intach
+
+
+    }
+
+    @Override
     public void enterFblock(DwunastaParser.FblockContext ctx) {
         global = false;
     }
@@ -65,7 +115,6 @@ public class LLVMActions extends DwunastaBaseListener {
         LLVMGenerator.functionend();
         localnames = new HashMap<>();
         global = true;
-        //TODO do przemyślenia
     }
 
 
@@ -73,9 +122,8 @@ public class LLVMActions extends DwunastaBaseListener {
     public void exitAssign(DwunastaParser.AssignContext ctx) {
         String ID = ctx.ID().getText();
         String a = ctx.getParent().getText();
-        String cf = ctx.ASSIGN().getText();
-        char ch = a.charAt(a.length()-2);
-        if(!id) {
+
+        if (!id) {
             Value v = stack.pop();
             if (v.type == VarType.INT) {
                 LLVMGenerator.assign_i32(set_variable(ID, v.type, take_global), v.name);
@@ -91,16 +139,13 @@ public class LLVMActions extends DwunastaBaseListener {
             }
         }
         id = false;
-
-
-        //todo inny assign!
     }
 
     public String set_variable(String ID, VarType TYPE, Boolean set_global) {
 
         String id;
         if (global || set_global) {
-            if (!globalnames.containsKey(ID)) {
+            if (!globalnames.containsKey(ID) && !ID.contains(".")) {
                 globalnames.put(ID, TYPE);
                 if (TYPE == VarType.INT) {
                     LLVMGenerator.declare_i32(ID, true);
@@ -122,7 +167,7 @@ public class LLVMActions extends DwunastaBaseListener {
             }
             id = "@" + ID;
         } else {
-            if (!localnames.containsKey(ID)) {
+            if (!localnames.containsKey(ID) && !ID.contains(".")) {
                 localnames.put(ID, TYPE);
                 if (TYPE == VarType.INT) {
                     LLVMGenerator.declare_i32(ID, false);
@@ -165,6 +210,7 @@ public class LLVMActions extends DwunastaBaseListener {
 //            value = ctx.INT().getText();
 //        }
     }
+
     @Override
     public void exitCall(DwunastaParser.CallContext ctx) {
         LLVMGenerator.call(ctx.ID().getText());
@@ -172,15 +218,6 @@ public class LLVMActions extends DwunastaBaseListener {
 
     @Override
     public void exitAssign_string(DwunastaParser.Assign_stringContext ctx) {
-        String ID = ctx.ID().getText();
-        String cont = ctx.STRING().getText();
-        // Value v = stack.pop();
-        //variables.put(ID, v.type);
-        //TODO declare - zarezerwowanie mmiejsca
-        //TODO scanf - przypisanie
-        System.out.println(ctx.ID().getText());
-        System.out.println(ctx.ID().getSymbol());
-        //System.out.println(stack.pop().name);
     }
 
     @Override
@@ -318,16 +355,16 @@ public class LLVMActions extends DwunastaBaseListener {
         String ID = ctx.ID().getText();
         VarType type = VarType.UNKNOWN;
         if (localnames.containsKey(ID)) {
-            //LLVMGenerator.load("%" + ID);
             type = localnames.get(ID);
         } else if (globalnames.containsKey(ID)) {
-            //LLVMGenerator.load("@" + ID);
             type = globalnames.get(ID);
         } else if (functions.contains(ID)) {
             LLVMGenerator.call(ID);
+        } else {
+            error(ctx.getStart().getLine(), "Unknown variable!");
+            System.exit(-1);
         }
-        if( !localnames.containsKey(ID) && globalnames.containsKey(ID))
-        {
+        if (!localnames.containsKey(ID) && globalnames.containsKey(ID)) {
             take_global = true;
         }
         value = "%" + (LLVMGenerator.reg - 1);
