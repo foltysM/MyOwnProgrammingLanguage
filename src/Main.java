@@ -11,7 +11,7 @@ import org.antlr.v4.runtime.tree.*;
 
 public class Main {
     public static void main(String[] args) throws Exception {
-        ANTLRFileStream input = new ANTLRFileStream("test4.x");
+        ANTLRFileStream input = new ANTLRFileStream("test.x");
 
         DwunastaLexer lexer = new DwunastaLexer(input);
 

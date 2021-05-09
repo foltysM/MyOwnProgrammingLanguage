@@ -91,7 +91,7 @@ public class LLVMActions extends DwunastaBaseListener {
         if (v.type == VarType.STRING) {
             LLVMGenerator.assign_string(set_variable(ID, v.type), v.name);
         }
-        if( v.type == VarType.ARRAY ){
+        if (v.type == VarType.ARRAY) {
             LLVMGenerator.assign_array(set_variable(ID, v.type), v.name);
         }
         //todo inny assign!
@@ -103,20 +103,19 @@ public class LLVMActions extends DwunastaBaseListener {
         if (global) {
             if (!globalnames.containsKey(ID)) {
                 globalnames.put(ID, TYPE);
-                if(TYPE == VarType.INT) {
+                if (TYPE == VarType.INT) {
                     LLVMGenerator.declare_i32(ID, true);
                 }
-                if( TYPE == VarType.REAL ){
+                if (TYPE == VarType.REAL) {
                     LLVMGenerator.declare_double(ID, true);
                 }
-                if( TYPE == VarType.STRING ){
+                if (TYPE == VarType.STRING) {
                     LLVMGenerator.declare_string(ID, true);
                 }
-                if( TYPE == VarType.ARRAY ){
+                if (TYPE == VarType.ARRAY) {
                     LLVMGenerator.declare_array(ID, true);
                 }
-                if( TYPE == VarType.UNKNOWN)
-                {
+                if (TYPE == VarType.UNKNOWN) {
                     System.err.println("Unknown data type!");
                     System.exit(-1);
                 }
@@ -126,16 +125,16 @@ public class LLVMActions extends DwunastaBaseListener {
         } else {
             if (!localnames.containsKey(ID)) {
                 localnames.put(ID, TYPE);
-                if( TYPE == VarType.INT ) {
+                if (TYPE == VarType.INT) {
                     LLVMGenerator.declare(ID, false);
                 }
-                if( TYPE == VarType.REAL ){
+                if (TYPE == VarType.REAL) {
                     LLVMGenerator.declare_double(ID, false);
                 }
-                if( TYPE == VarType.STRING ){
+                if (TYPE == VarType.STRING) {
                     LLVMGenerator.declare_string(ID, false);
                 }
-                if( TYPE == VarType.ARRAY ){
+                if (TYPE == VarType.ARRAY) {
                     LLVMGenerator.declare_array(ID, false);
                 }
             }
@@ -202,11 +201,21 @@ public class LLVMActions extends DwunastaBaseListener {
     public void exitEqual(DwunastaParser.EqualContext ctx) {
         String ID = ctx.ID().getText();
         String INT = ctx.INT().getText();
-        if (variables.containsKey(ID)) {
-            LLVMGenerator.icmp(ID, INT);
+        if (global) {
+            if (globalnames.containsKey(ID)) {
+                LLVMGenerator.icmp(set_variable(ID, VarType.INT), INT);
+            } else {
+                ctx.getStart().getLine();
+                System.err.println("Line " + ctx.getStart().getLine() + ", unknown variable: " + ID);
+            }
         } else {
-            ctx.getStart().getLine();
-            System.err.println("Line " + ctx.getStart().getLine() + ", unknown variable: " + ID);
+            if (localnames.containsKey(ID)) {
+                LLVMGenerator.icmp(ID, INT);
+            } else {
+                ctx.getStart().getLine();
+                System.err.println("Line " + ctx.getStart().getLine() + ", unknown variable: " + ID);
+            }
+
         }
     }
 
@@ -244,12 +253,12 @@ public class LLVMActions extends DwunastaBaseListener {
 
     @Override
     public void exitString(DwunastaParser.StringContext ctx) {
-        stack.push( new Value(ctx.STRING().getText(), VarType.STRING) );
+        stack.push(new Value(ctx.STRING().getText(), VarType.STRING));
     }
 
     @Override
     public void exitArray(DwunastaParser.ArrayContext ctx) {
-        stack.push( new Value(ctx.ARRAY().getText(), VarType.ARRAY) );
+        stack.push(new Value(ctx.ARRAY().getText(), VarType.ARRAY));
     }
 
     @Override
@@ -328,7 +337,6 @@ public class LLVMActions extends DwunastaBaseListener {
     }
 
 
-
     @Override
     public void exitPrint(DwunastaParser.PrintContext ctx) {
         String ID = ctx.ID().getText();
@@ -351,10 +359,10 @@ public class LLVMActions extends DwunastaBaseListener {
             if (type == VarType.REAL) {
                 LLVMGenerator.printf_double(set_variable(ID, type));
             }
-            if( type == VarType.STRING ){
+            if (type == VarType.STRING) {
                 LLVMGenerator.printf_string(set_variable(ID, type));
             }
-            if( type == VarType.ARRAY ){
+            if (type == VarType.ARRAY) {
                 LLVMGenerator.printf_array(set_variable(ID, type));
             }
         } else {

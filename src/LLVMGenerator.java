@@ -38,9 +38,9 @@ class LLVMGenerator{
 
    static void icmp(String id, String value)
    {
-      buffer += "%"+reg+" = load i32, i32* %"+id+"\n";
+      buffer += "%"+reg+" = load i32, i32* "+id+"\n";
       reg++;
-      buffer += "%"+reg+" = icmp eq i32 %"+(reg-1)+", "+value+"\n";
+      buffer += "%"+reg+" = icmp eq i32 "+(reg-1)+", "+value+"\n";
       reg++;
    }
 
