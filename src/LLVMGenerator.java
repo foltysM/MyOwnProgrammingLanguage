@@ -16,17 +16,17 @@ class LLVMGenerator{
    static Stack<Integer> brstack_if = new Stack<Integer>();
 
    static void repeatstart(String repetitions){
-      declare_i32(Integer.toString(reg), true);
+      declare_r(Integer.toString(reg));
       int counter = reg;
       reg++;
-      assign_i32(Integer.toString(counter), "0");
+      assign_i32("%"+counter, "0");
       br++;
       buffer += "br label %cond"+br+"\n";
       buffer += "cond"+br+":\n";
 
-      load(Integer.toString(counter));
+      load("%"+counter);
       add("%"+(reg-1), "1");
-      assign(Integer.toString(counter), "%"+(reg-1));
+      assign("%"+counter, "%"+(reg-1));
 
       buffer += "%"+reg+" = icmp slt i32 %"+(reg-2)+", "+repetitions+"\n";
       reg++;
@@ -97,13 +97,7 @@ class LLVMGenerator{
       reg++;
    }
 
-   static void declare_i32(String id, Boolean global){
-      if( global ){
-         header_text += "@"+id+" = global i32 0\n";
-      } else {
-         buffer += "%"+id+" = alloca i32\n";
-      }
-   }
+
 
 //   static void declare_array(String id)
 //   {
@@ -235,12 +229,24 @@ class LLVMGenerator{
       main_text += buffer;
    }
 
-   static void declare(String id, Boolean global){
+//   static void declare(String id, Boolean global){
+//      if( global ){
+//         header_text += "@"+id+" = global i32 0\n";
+//      } else {
+//         buffer += "%"+id+" = alloca i32\n";
+//      }
+//   }
+
+   static void declare_i32(String id, Boolean global){
       if( global ){
          header_text += "@"+id+" = global i32 0\n";
       } else {
          buffer += "%"+id+" = alloca i32\n";
       }
+   }
+
+   static void declare_r(String id){
+      buffer += "%"+id+" = alloca i32\n";
    }
 
    static void call(String id){

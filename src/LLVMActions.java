@@ -70,23 +70,12 @@ public class LLVMActions extends DwunastaBaseListener {
     public void exitAssign(DwunastaParser.AssignContext ctx) {
         String ID = ctx.ID().getText();
         Value v = stack.pop();
-        /*if(global)
-        {
-            globalnames.put(ID, v.type);
-        }else
-        {
-            localnames.put(ID, v.type);
-        }*/
-        //variables.put(ID, v.type);
-        //ids.add(ID);
+
         if (v.type == VarType.INT) {
-            //LLVMGenerator.declare_i32(ID, global);
             LLVMGenerator.assign_i32(set_variable(ID, v.type), v.name);
         }
         if (v.type == VarType.REAL) {
-            //LLVMGenerator.declare_double(ID, global);
             LLVMGenerator.assign_double(set_variable(ID, v.type), v.name);
-            //todo nie będzie działać
         }
         if (v.type == VarType.STRING) {
             LLVMGenerator.assign_string(set_variable(ID, v.type), v.name);
@@ -126,7 +115,7 @@ public class LLVMActions extends DwunastaBaseListener {
             if (!localnames.containsKey(ID)) {
                 localnames.put(ID, TYPE);
                 if (TYPE == VarType.INT) {
-                    LLVMGenerator.declare(ID, false);
+                    LLVMGenerator.declare_i32(ID, false);
                 }
                 if (TYPE == VarType.REAL) {
                     LLVMGenerator.declare_double(ID, false);
