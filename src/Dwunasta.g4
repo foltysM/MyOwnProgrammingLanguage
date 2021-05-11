@@ -3,7 +3,7 @@ grammar Dwunasta;
 prog: start
     ;
 
-start: (( expr SEMICOLON ) | function | (struct SEMICOLON))*
+start: (( expr SEMICOLON ) | function | theclass | (struct SEMICOLON))*
 ;
 
 expr:
@@ -28,6 +28,13 @@ declaration: ID
 struct_block: (declaration SEMICOLON)*
     ;
 
+theclass: CLASS_SYMBOL ID '{' class_block '}' # class_declaration
+        | CLASS_SYMBOL ID ID SEMICOLON # class_call
+    ;
+
+class_block: ((declaration SEMICOLON)
+               | (function))*
+    ;
 
 function: BEGINFUNCTION fparam fblock ENDFUNCTION
     ;
@@ -70,6 +77,7 @@ ENDIF: 'endif'
 
 THEN: 'then'
     ;
+CLASS_SYMBOL : 'class';
 
 BEGINFUNCTION: 'beginf'
     ;

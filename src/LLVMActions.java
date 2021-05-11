@@ -19,9 +19,13 @@ class Value {
 }
 
 
+
+
 public class LLVMActions extends DwunastaBaseListener {
 
     Boolean id = false;
+    Boolean is_in_class = false;
+    Boolean class_member = false;
     String last_struct;
     Boolean take_global = false;
     Stack<Value> stack = new Stack<>();
@@ -32,6 +36,8 @@ public class LLVMActions extends DwunastaBaseListener {
     HashMap<String, VarType> localnames = new HashMap<>();
     ArrayList<String> structures = new ArrayList<>();
     ArrayList<ArrayList<String>> structure_variables = new ArrayList<>();
+
+
 
     @Override
     public void exitRepetitions(DwunastaParser.RepetitionsContext ctx) {
@@ -46,16 +52,40 @@ public class LLVMActions extends DwunastaBaseListener {
 
     @Override
     public void exitFparam(DwunastaParser.FparamContext ctx) {
-        String ID = ctx.ID().getText();
+        String ID;
+        if (!class_member) {
+            ID = ctx.ID().getText();
+        }else
+        {
+            ID = last_struct + "." + ctx.ID().getText();
+        }
         functions.add(ID);
         function = ID;
-        LLVMGenerator.functionstart(ID);
+        LLVMGenerator.functionstart(ID, class_member);
     }
 
     @Override
-    public void enterStruct_block(DwunastaParser.Struct_blockContext ctx) {
-        //TODO dodanie nazwy struktury do listy struktur
+    public void exitFunction(DwunastaParser.FunctionContext ctx) {
+        class_member = false;
+        String ID = ctx.fparam().ID().getText();
+        if(ctx.getParent() instanceof DwunastaParser.Class_blockContext) {
 
+            //declare
+
+            int which = structures.indexOf(last_struct);
+            if (structure_variables.size() <= which) {
+                //creates a list
+                structure_variables.add(new ArrayList<>());
+            }
+            if(!(last_struct+"."+ID).equals(function)) {
+                structure_variables.get(which).add(ID);
+            }
+        }
+    }
+
+    @Override
+    public void enterFunction(DwunastaParser.FunctionContext ctx) {
+        class_member = ctx.getParent() instanceof DwunastaParser.Class_blockContext;
     }
 
     @Override
@@ -77,14 +107,16 @@ public class LLVMActions extends DwunastaBaseListener {
     }
 
     @Override
-    public void exitStruct_delaration(DwunastaParser.Struct_delarationContext ctx) {
-        System.out.println("debug");
+    public void enterClass_declaration(DwunastaParser.Class_declarationContext ctx) {
+        String name = ctx.ID().getText();
+        structures.add(name);
+        last_struct = name;
+        is_in_class = true;
     }
 
     @Override
-    public void exitStruct_block(DwunastaParser.Struct_blockContext ctx) {
-        //String vars = ctx;
-        //todo
+    public void exitClass_declaration(DwunastaParser.Class_declarationContext ctx) {
+        is_in_class = false;
     }
 
     @Override
@@ -92,11 +124,28 @@ public class LLVMActions extends DwunastaBaseListener {
         String object_name = ctx.ID(1).getText();
         String structure_name = ctx.ID(0).getText();
         int which_structure = structures.indexOf(structure_name);
+        is_in_class = true;
         for (int i = 0; i < structure_variables.get(which_structure).size(); i++) {
-            LLVMGenerator.declare_i32(object_name + "." + structure_variables.get(which_structure).get(i), global);
+            LLVMGenerator.declare_i32(object_name + "." + structure_variables.get(which_structure).get(i), global, is_in_class);
             globalnames.put(object_name + "." + structure_variables.get(which_structure).get(i), VarType.INT);
 
         }//todo póki co działa tylko na intach
+        is_in_class = false;
+
+
+    }
+
+    @Override
+    public void exitClass_call(DwunastaParser.Class_callContext ctx) {
+        String object_name = ctx.ID(1).getText();
+        String structure_name = ctx.ID(0).getText();
+        int which_structure = structures.indexOf(structure_name);
+        for (int i = 0; i < structure_variables.get(which_structure).size(); i++) {
+            LLVMGenerator.declare_i32(object_name + "." + structure_variables.get(which_structure).get(i), global, is_in_class);
+            globalnames.put(object_name + "." + structure_variables.get(which_structure).get(i), VarType.INT);
+        }
+
+        LLVMGenerator.declare_inner_function(object_name, structure_name);
 
 
     }
@@ -108,10 +157,12 @@ public class LLVMActions extends DwunastaBaseListener {
 
     @Override
     public void exitFblock(DwunastaParser.FblockContext ctx) {
+
         if (!localnames.containsKey(function)) {
-            LLVMGenerator.assign(set_variable(function, VarType.INT, take_global), "0");
+            LLVMGenerator.assign_i32(set_variable(function, VarType.INT, take_global), "0", is_in_class);
         }
-        LLVMGenerator.load("%" + function);
+
+        LLVMGenerator.load_i32("%" + function, is_in_class);
         LLVMGenerator.functionend();
         localnames = new HashMap<>();
         global = true;
@@ -120,35 +171,35 @@ public class LLVMActions extends DwunastaBaseListener {
 
     @Override
     public void exitAssign(DwunastaParser.AssignContext ctx) {
-        String ID = ctx.ID().getText();
-        String a = ctx.getParent().getText();
 
-        if (!id) {
-            Value v = stack.pop();
-            if (v.type == VarType.INT) {
-                LLVMGenerator.assign_i32(set_variable(ID, v.type, take_global), v.name);
+            String ID = ctx.ID().getText();
+
+            if (!id) {
+                Value v = stack.pop();
+                if (v.type == VarType.INT) {
+                    LLVMGenerator.assign_i32(set_variable(ID, v.type, take_global), v.name, is_in_class);
+                }
+                if (v.type == VarType.REAL) {
+                    LLVMGenerator.assign_double(set_variable(ID, v.type, take_global), v.name);//todo is in
+                }
+                if (v.type == VarType.STRING) {
+                    LLVMGenerator.assign_string(set_variable(ID, v.type, take_global), v.name);//todo is in
+                }
+                if (v.type == VarType.ARRAY) {
+                    LLVMGenerator.assign_array(set_variable(ID, v.type, take_global), v.name);//todo is in
+                }
             }
-            if (v.type == VarType.REAL) {
-                LLVMGenerator.assign_double(set_variable(ID, v.type, take_global), v.name);
-            }
-            if (v.type == VarType.STRING) {
-                LLVMGenerator.assign_string(set_variable(ID, v.type, take_global), v.name);
-            }
-            if (v.type == VarType.ARRAY) {
-                LLVMGenerator.assign_array(set_variable(ID, v.type, take_global), v.name);
-            }
-        }
-        id = false;
+            id = false;
     }
 
     public String set_variable(String ID, VarType TYPE, Boolean set_global) {
-
+        String debugstop = "";//tu jest problem, nie wchodzi ani w jedno ani w drugie
         String id;
         if (global || set_global) {
             if (!globalnames.containsKey(ID) && !ID.contains(".")) {
                 globalnames.put(ID, TYPE);
                 if (TYPE == VarType.INT) {
-                    LLVMGenerator.declare_i32(ID, true);
+                    LLVMGenerator.declare_i32(ID, true, is_in_class);
                 }
                 if (TYPE == VarType.REAL) {
                     LLVMGenerator.declare_double(ID, true);
@@ -167,10 +218,10 @@ public class LLVMActions extends DwunastaBaseListener {
             }
             id = "@" + ID;
         } else {
-            if (!localnames.containsKey(ID) && !ID.contains(".")) {
+            if (!localnames.containsKey(ID) ) {
                 localnames.put(ID, TYPE);
                 if (TYPE == VarType.INT) {
-                    LLVMGenerator.declare_i32(ID, false);
+                    LLVMGenerator.declare_i32(ID, false, is_in_class);
                 }
                 if (TYPE == VarType.REAL) {
                     LLVMGenerator.declare_double(ID, false);
@@ -182,6 +233,7 @@ public class LLVMActions extends DwunastaBaseListener {
                     LLVMGenerator.declare_array(ID, false);
                 }
             }
+
             id = "%" + ID;
         }
         return id;
@@ -195,9 +247,9 @@ public class LLVMActions extends DwunastaBaseListener {
             String ID = ctx.ID().getText();
 
             if (localnames.containsKey(ID)) {
-                LLVMGenerator.load("%" + ID);
+                LLVMGenerator.load_i32("%" + ID, is_in_class);
             } else if (globalnames.containsKey(ID)) {
-                LLVMGenerator.load("@" + ID);
+                LLVMGenerator.load_i32("@" + ID, is_in_class);
             } else if (functions.contains(ID)) {
                 LLVMGenerator.call(ID);
             } else {
@@ -238,6 +290,7 @@ public class LLVMActions extends DwunastaBaseListener {
     public void exitEqual(DwunastaParser.EqualContext ctx) {
         String ID = ctx.ID().getText();
         String INT = ctx.INT().getText();
+        ctx.getParent();
         if (global) {
             if (globalnames.containsKey(ID)) {
                 LLVMGenerator.icmp(set_variable(ID, VarType.INT, take_global), INT);
@@ -340,53 +393,48 @@ public class LLVMActions extends DwunastaBaseListener {
     @Override
     public void exitRead(DwunastaParser.ReadContext ctx) {
         String ID = ctx.ID().getText();
-
-        // wersja dla integer
-//        if (!variables.containsKey(ID)) {
-//            variables.put(ID, VarType.INT);
-//            LLVMGenerator.declare_i32(ID);
-//        }
+        //TODO double
         LLVMGenerator.scanf(set_variable(ID, VarType.INT, take_global));
     }
 
 
     @Override
     public void exitPrint(DwunastaParser.PrintContext ctx) {
-        String ID = ctx.ID().getText();
-        VarType type = VarType.UNKNOWN;
-        if (localnames.containsKey(ID)) {
-            type = localnames.get(ID);
-        } else if (globalnames.containsKey(ID)) {
-            type = globalnames.get(ID);
-        } else if (functions.contains(ID)) {
-            LLVMGenerator.call(ID);
-        } else {
-            error(ctx.getStart().getLine(), "Unknown variable!");
-            System.exit(-1);
-        }
-        if (!localnames.containsKey(ID) && globalnames.containsKey(ID)) {
-            take_global = true;
-        }
-        value = "%" + (LLVMGenerator.reg - 1);
-        if (type != null) {
-            if (type == VarType.INT) {
-                LLVMGenerator.load_i32(set_variable(ID, type, take_global));
-                LLVMGenerator.printf_i32(set_variable(ID, type, take_global));
-            }
-            if (type == VarType.REAL) {
-                LLVMGenerator.printf_double(set_variable(ID, type, take_global));
-            }
-            if (type == VarType.STRING) {
-                LLVMGenerator.printf_string(set_variable(ID, type, take_global));
-            }
-            if (type == VarType.ARRAY) {
-                LLVMGenerator.printf_array(set_variable(ID, type, take_global));
-            }
-        } else {
-            error(ctx.getStart().getLine(), "unknown variable " + ID);
-        }
-        take_global = false;
 
+            String ID = ctx.ID().getText();
+            VarType type = VarType.UNKNOWN;
+            if (localnames.containsKey(ID)) {
+                type = localnames.get(ID);
+            } else if (globalnames.containsKey(ID)) {
+                type = globalnames.get(ID);
+            } else if (functions.contains(ID)) {
+                LLVMGenerator.call(ID);
+            } else {
+                error(ctx.getStart().getLine(), "Unknown variable!");
+                System.exit(-1);
+            }
+            if (!localnames.containsKey(ID) && globalnames.containsKey(ID)) {
+                take_global = true;
+            }
+            value = "%" + (LLVMGenerator.reg - 1);
+            if (type != null) {
+                if (type == VarType.INT) {
+                    LLVMGenerator.load_i32(set_variable(ID, type, take_global), is_in_class);
+                    LLVMGenerator.printf_i32(set_variable(ID, type, take_global), is_in_class);
+                }
+                if (type == VarType.REAL) {
+                    LLVMGenerator.printf_double(set_variable(ID, type, take_global));
+                }
+                if (type == VarType.STRING) {
+                    LLVMGenerator.printf_string(set_variable(ID, type, take_global));
+                }
+                if (type == VarType.ARRAY) {
+                    LLVMGenerator.printf_array(set_variable(ID, type, take_global));
+                }
+            } else {
+                error(ctx.getStart().getLine(), "unknown variable " + ID);
+            }
+            take_global = false;
     }
 
     void error(int line, String msg) {

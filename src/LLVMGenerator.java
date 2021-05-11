@@ -1,31 +1,69 @@
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Stack;
+
+
+
+
+class DeclarationText {
+    public String text1;
+    public String text2;
+
+    public DeclarationText(String text1, String text2) {
+        this.text1 = text1;
+        this.text2 = text2;
+    }
+}
+
+class Function_declarations {
+    public String function_name;
+    public String text1;
+    public String text2;
+
+    public Function_declarations(String function_name, String text1, String text2)
+    {
+        this.function_name = function_name;
+        this.text1 = text1;
+        this.text2 = text2;
+    }
+
+}
 
 class LLVMGenerator {
 
     static String header_text = "";
     static String main_text = "";
     static String buffer = "";
+    static String buffer1 = "";
+    static String buffer2 = "";
     static int reg = 1;
     static int main_reg = 1;
     static int br = 0;
     static int br_if = 0;
+    static Boolean class_member = false;
+    //static String buffer_id = "";
+    static String buffer_id1 = "";
+    static String buffer_id2 = "";
 
+
+    static HashMap<String, Function_declarations> functions_strings = new HashMap<>();
     static Stack<Integer> brstack = new Stack<>();
     static Stack<Integer> brstack_if = new Stack<>();
+    //static HashMap<String, DeclarationText> class_functions = new HashMap<>();
 
     static void repeatstart(String repetitions) {
         declare_r(Integer.toString(reg));
         int counter = reg;
         reg++;
-        assign_i32("%" + counter, "0");
+        assign_i32("%" + counter, "0", false);
         br++;
         buffer += "br label %cond" + br + "\n";
         buffer += "cond" + br + ":\n";
 
-        load("%" + counter);
+        load_i32("%" + counter, false);
         add("%" + (reg - 1), "1");
-        assign("%" + counter, "%" + (reg - 1));
+        assign_i32("%" + counter, "%" + (reg - 1), false);
 
         buffer += "%" + reg + " = icmp slt i32 %" + (reg - 2) + ", " + repetitions + "\n";
         reg++;
@@ -61,13 +99,15 @@ class LLVMGenerator {
         buffer += "false" + b + ":\n";
     }
 
-    static void assign(String id, String value) {
-        buffer += "store i32 " + value + ", i32* " + id + "\n";
-    }
 
-    static void load(String id) {
-        buffer += "%" + reg + " = load i32, i32* " + id + "\n";
-        reg++;
+    static void assign_i32(String id, String value, Boolean is_in_class) {
+        if(is_in_class)
+        {
+            buffer2 += "store i32 " + value + ", i32* " + id + "\n";
+        }else{
+            buffer += "store i32 " + value + ", i32* " + id + "\n";
+        }
+
     }
 
     static void add(String val1, String val2) {
@@ -75,13 +115,25 @@ class LLVMGenerator {
         reg++;
     }
 
-    static void load_i32(String id) {
-        buffer += "%" + reg + " = load i32, i32* " + id + "\n";
+    static void load_i32(String id, Boolean is_in_class) {
+        if(!(is_in_class))
+        {
+            buffer += "%" + reg + " = load i32, i32* " + id + "\n";
+        }else
+        {
+            buffer2 += "%" + reg + " = load i32, i32* " + id + "\n";
+        }
+
         reg++;
     }
 
-    static void printf_i32(String id) {
-        buffer += "%" + reg + " = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @strpi, i32 0, i32 0), i32 %" + (reg - 1) + ")\n";
+    static void printf_i32(String id, Boolean is_in_class) {
+        if(!is_in_class) {
+            buffer += "%" + reg + " = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @strpi, i32 0, i32 0), i32 %" + (reg - 1) + ")\n";
+        }else
+        {
+            buffer2 += "%" + reg + " = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @strpi, i32 0, i32 0), i32 %" + (reg - 1) + ")\n";
+        }
         reg++;
     }
 
@@ -100,9 +152,7 @@ class LLVMGenerator {
         }
     }
 
-    static void assign_i32(String id, String value) {
-        buffer += "store i32 " + value + ", i32* " + id + "\n";
-    }
+
 
     static void assign_double(String id, String value) {
         buffer += "store double " + value + ", double* " + id + "\n";
@@ -149,19 +199,56 @@ class LLVMGenerator {
         reg++;
     }
 
-    static void functionstart(String id) {
-        main_text += buffer;
-        main_reg = reg;
-        buffer = "define i32 @" + id + "() nounwind {\n";
-        reg = 1;
+    static void functionstart(String id, Boolean class_member1) {
+        class_member = class_member1;
+        if (!class_member) {
+            main_text += buffer;
+            main_reg = reg;
+            buffer = "define i32 @" + id + "() nounwind {\n";
+            reg = 1;
+        }else
+        {
+            //split string
+            String [] s = id.split("\\.");
+            buffer_id1 = s[0];
+            buffer_id2 = s[1];
+            main_text += buffer;
+            main_reg = reg;
+            buffer1 = "define i32 @";
+            buffer2 = "() nounwind {\n";
+            reg = 1;
+        }
     }
 
     static void functionend() {
-        buffer += "ret i32 %" + (reg - 1) + "\n";
-        buffer += "}\n";
-        header_text += buffer;
-        buffer = "";
-        reg = main_reg;
+        if(!class_member) {
+            buffer += "ret i32 %" + (reg - 1) + "\n";
+            buffer += "}\n";
+            header_text += buffer;
+            buffer = "";
+            reg = main_reg;
+        }else{
+            buffer2 += "ret i32 %" + (reg - 1) + "\n";
+            buffer2 += "}\n";
+            //class_functions.put(buffer_id, new DeclarationText(buffer1, buffer2));
+
+            functions_strings.put(buffer_id1, new Function_declarations(buffer_id2, buffer1, buffer2));
+
+            reg = main_reg;
+
+            buffer_id1 = "";
+            buffer_id2 = "";
+            buffer1 = "";
+            buffer2 = "";
+        }
+    }
+
+    static void declare_inner_function(String object_name, String structure_name) {
+        //buffer2 = buffer2.replace(buffer_id1, buffer_id2);
+        Function_declarations declaration =  functions_strings.get(structure_name);
+        declaration.text2 = declaration.text2.replace(structure_name, object_name);//todo buffer1 & buffer2 -> buffer
+        String a = declaration.text1+object_name+"."+declaration.function_name+declaration.text2;
+        header_text += a;
     }
 
 
@@ -185,14 +272,21 @@ class LLVMGenerator {
         main_text += buffer;
     }
 
-    static void declare_i32(String id, Boolean global) {
-//        if (!id.contains(".")) {
+    static void declare_i32(String id, Boolean global, Boolean is_in_class) {
+        if (!is_in_class) {
             if (global) {
                 header_text += "@" + id + " = global i32 0\n";
             } else {
                 buffer += "%" + id + " = alloca i32\n";
             }
-       // }
+        }else
+        {
+            if (global) {
+                header_text += "@" + id + " = global i32 0\n";
+            } else {
+                buffer2 += "%" + id + " = alloca i32\n";
+            }
+        }
     }
 
     static void declare_r(String id) {
@@ -267,4 +361,6 @@ class LLVMGenerator {
         buffer += "%" + reg + " = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.string, i32 0, i32 0), i8* %" + (reg - 1) + ")\n";
         reg++;
     }
+
+
 }

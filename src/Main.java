@@ -2,11 +2,12 @@ import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.*;
 
 //todo zasieg zmiennych
+//todo operatory zasiegu & konstruktory
 
 
 public class Main {
     public static void main(String[] args) throws Exception {
-        ANTLRFileStream input = new ANTLRFileStream("test_structures.x");
+        ANTLRFileStream input = new ANTLRFileStream("test_classes.x");
 
         DwunastaLexer lexer = new DwunastaLexer(input);
 
