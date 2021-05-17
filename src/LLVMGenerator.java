@@ -1,30 +1,14 @@
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Stack;
 
 
-
-
-class DeclarationText {
-    public String text1;
-    public String text2;
-
-    public DeclarationText(String text1, String text2) {
-        this.text1 = text1;
-        this.text2 = text2;
-    }
-}
-
 class Function_declarations {
     public String function_name;
-    public String text1;
     public String text2;
 
-    public Function_declarations(String function_name, String text1, String text2)
-    {
+    public Function_declarations(String function_name, String text2) {
         this.function_name = function_name;
-        this.text1 = text1;
         this.text2 = text2;
     }
 
@@ -35,14 +19,12 @@ class LLVMGenerator {
     static String header_text = "";
     static String main_text = "";
     static String buffer = "";
-    static String buffer1 = "";
     static String buffer2 = "";
     static int reg = 1;
     static int main_reg = 1;
     static int br = 0;
     static int br_if = 0;
     static Boolean class_member = false;
-    //static String buffer_id = "";
     static String buffer_id1 = "";
     static String buffer_id2 = "";
 
@@ -50,7 +32,6 @@ class LLVMGenerator {
     static HashMap<String, Function_declarations> functions_strings = new HashMap<>();
     static Stack<Integer> brstack = new Stack<>();
     static Stack<Integer> brstack_if = new Stack<>();
-    //static HashMap<String, DeclarationText> class_functions = new HashMap<>();
 
     static void repeatstart(String repetitions) {
         declare_r(Integer.toString(reg));
@@ -100,15 +81,7 @@ class LLVMGenerator {
     }
 
 
-    static void assign_i32(String id, String value, Boolean is_in_class) {
-        if(is_in_class)
-        {
-            buffer2 += "store i32 " + value + ", i32* " + id + "\n";
-        }else{
-            buffer += "store i32 " + value + ", i32* " + id + "\n";
-        }
 
-    }
 
     static void add(String val1, String val2) {
         buffer += "%" + reg + " = add i32 " + val1 + ", " + val2 + "\n";
@@ -116,11 +89,9 @@ class LLVMGenerator {
     }
 
     static void load_i32(String id, Boolean is_in_class) {
-        if(!(is_in_class))
-        {
+        if (!(is_in_class)) {
             buffer += "%" + reg + " = load i32, i32* " + id + "\n";
-        }else
-        {
+        } else {
             buffer2 += "%" + reg + " = load i32, i32* " + id + "\n";
         }
 
@@ -128,10 +99,9 @@ class LLVMGenerator {
     }
 
     static void printf_i32(String id, Boolean is_in_class) {
-        if(!is_in_class) {
+        if (!is_in_class) {
             buffer += "%" + reg + " = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @strpi, i32 0, i32 0), i32 %" + (reg - 1) + ")\n";
-        }else
-        {
+        } else {
             buffer2 += "%" + reg + " = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @strpi, i32 0, i32 0), i32 %" + (reg - 1) + ")\n";
         }
         reg++;
@@ -154,9 +124,6 @@ class LLVMGenerator {
 
 
 
-    static void assign_double(String id, String value) {
-        buffer += "store double " + value + ", double* " + id + "\n";
-    }
 
     static void scanf(String id) {
         buffer += "%" + reg + " = call i32 (i8*, ...) @__isoc99_scanf(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @strs, i32 0, i32 0), i32* " + id + ")\n";
@@ -205,50 +172,44 @@ class LLVMGenerator {
             main_text += buffer;
             main_reg = reg;
             buffer = "define i32 @" + id + "() nounwind {\n";
-            reg = 1;
-        }else
-        {
+        } else {
             //split string
-            String [] s = id.split("\\.");
+            String[] s = id.split("\\.");
             buffer_id1 = s[0];
             buffer_id2 = s[1];
             main_text += buffer;
             main_reg = reg;
-            buffer1 = "define i32 @";
-            buffer2 = "() nounwind {\n";
-            reg = 1;
+            buffer2 = "define i32 @";
+            buffer2 += id;
+
+            buffer2 += "() nounwind {\n";
         }
+        reg = 1;
     }
 
     static void functionend() {
-        if(!class_member) {
+        if (!class_member) {
             buffer += "ret i32 %" + (reg - 1) + "\n";
             buffer += "}\n";
             header_text += buffer;
             buffer = "";
             reg = main_reg;
-        }else{
+        } else {
             buffer2 += "ret i32 %" + (reg - 1) + "\n";
             buffer2 += "}\n";
-            //class_functions.put(buffer_id, new DeclarationText(buffer1, buffer2));
 
-            functions_strings.put(buffer_id1, new Function_declarations(buffer_id2, buffer1, buffer2));
-
+            functions_strings.put(buffer_id1, new Function_declarations(buffer_id2, buffer2));
             reg = main_reg;
-
             buffer_id1 = "";
             buffer_id2 = "";
-            buffer1 = "";
             buffer2 = "";
         }
     }
 
     static void declare_inner_function(String object_name, String structure_name) {
-        //buffer2 = buffer2.replace(buffer_id1, buffer_id2);
-        Function_declarations declaration =  functions_strings.get(structure_name);
-        declaration.text2 = declaration.text2.replace(structure_name, object_name);//todo buffer1 & buffer2 -> buffer
-        String a = declaration.text1+object_name+"."+declaration.function_name+declaration.text2;
-        header_text += a;
+        Function_declarations declaration = functions_strings.get(structure_name);
+        header_text += declaration.text2.replace(structure_name, object_name);
+
     }
 
 
@@ -279,8 +240,7 @@ class LLVMGenerator {
             } else {
                 buffer += "%" + id + " = alloca i32\n";
             }
-        }else
-        {
+        } else {
             if (global) {
                 header_text += "@" + id + " = global i32 0\n";
             } else {
@@ -314,10 +274,10 @@ class LLVMGenerator {
         }
     }
 
-    static void assign_string(String id, String value) {
+    static void assign_string(String id, String value, Boolean is_in_class) {
         String[] str = new String[6];
-        char c = 'a';
-        int ascii = 0;
+        char c;
+        int ascii;
         for (int i = 0; i < 6; i++) {
             if (i < value.length()) {
                 c = value.charAt(i);
@@ -325,16 +285,40 @@ class LLVMGenerator {
             } else {
                 ascii = 0;
             }
-            str[i] = "i8 " + String.valueOf(ascii);
+            str[i] = "i8 " + ascii;
+        }
+        if (is_in_class) {
+            buffer2 += "store [6 x i8] " + Arrays.toString(str) + ", [6 x i8]* " + id + "\n";
+        }else
+        {
+            buffer += "store [6 x i8] " + Arrays.toString(str) + ", [6 x i8]* " + id + "\n";
         }
 
-        buffer += "store [6 x i8] " + Arrays.toString(str) + ", [6 x i8]* " + id + "\n";
     }
 
-    static void assign_array(String id, String value) {
+    static void assign_double(String id, String value, Boolean is_in_class) {
+        if (is_in_class) {
+            buffer2 += "store double " + value + ", double* " + id + "\n";
+        }else
+        {
+            buffer += "store double " + value + ", double* " + id + "\n";
+        }
+
+    }
+
+    static void assign_i32(String id, String value, Boolean is_in_class) {
+        if (is_in_class) {
+            buffer2 += "store i32 " + value + ", i32* " + id + "\n";
+        } else {
+            buffer += "store i32 " + value + ", i32* " + id + "\n";
+        }
+
+    }
+
+    static void assign_array(String id, String value, Boolean is_in_class) {
         String[] str = new String[6];
-        char c = 'a';
-        int ascii = 0;
+        char c;
+        int ascii;
         for (int i = 0; i < 6; i++) {
             if (i < value.length()) {
                 c = value.charAt(i);
@@ -342,10 +326,14 @@ class LLVMGenerator {
             } else {
                 ascii = 0;
             }
-            str[i] = "i8 " + String.valueOf(ascii);
+            str[i] = "i8 " + ascii;
+        }
+        if (is_in_class) {
+            buffer2 += "store [6 x i8] " + Arrays.toString(str) + ", [6 x i8]* " + id + "\n";
+        }else{
+            buffer += "store [6 x i8] " + Arrays.toString(str) + ", [6 x i8]* " + id + "\n";
         }
 
-        buffer += "store [6 x i8] " + Arrays.toString(str) + ", [6 x i8]* " + id + "\n";
     }
 
     static void printf_string(String id) {

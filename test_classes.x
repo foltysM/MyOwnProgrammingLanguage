@@ -12,9 +12,11 @@ class Test{
 }
 
 class Test t;
-
+class Test y;
 t.z = 22;
 print t.z;
+y.z = 45;
+print y.z;
 
 
 beginf fun
@@ -24,5 +26,7 @@ beginf fun
 endf
 
 t.zosia;
+y.zosia;
 
 fun;
+
