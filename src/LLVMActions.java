@@ -125,7 +125,7 @@ public class LLVMActions extends DwunastaBaseListener {
             LLVMGenerator.declare_i32(object_name + "." + structure_variables.get(which_structure).get(i), global, is_in_class);
             globalnames.put(object_name + "." + structure_variables.get(which_structure).get(i), VarType.INT);
 
-        }//todo póki co działa tylko na intach
+        }
         is_in_class = false;
 
 
@@ -346,7 +346,18 @@ public class LLVMActions extends DwunastaBaseListener {
                 stack.push(new Value("%" + (LLVMGenerator.reg - 1), VarType.REAL));
             }
         } else {
-            error(ctx.getStart().getLine(), "add type mismatch");
+            if(v1.type == VarType.INT)
+            {
+                LLVMGenerator.sitofp(v1.name);
+                v1 = new Value("%" + (LLVMGenerator.reg - 1), VarType.REAL);
+            }
+            if(v2.type == VarType.INT)
+            {
+                LLVMGenerator.sitofp(v2.name);
+                v2 = new Value("%" + (LLVMGenerator.reg - 1), VarType.REAL);
+            }
+            LLVMGenerator.add_double(v1.name, v2.name);
+            stack.push(new Value("%" + (LLVMGenerator.reg - 1), VarType.REAL));
         }
     }
 
@@ -366,10 +377,20 @@ public class LLVMActions extends DwunastaBaseListener {
                 stack.push(new Value("%" + (LLVMGenerator.reg - 1), VarType.REAL));
             }
         } else {
-            error(ctx.getStart().getLine(), "add type mismatch");
+            if(v1.type == VarType.INT)
+            {
+                LLVMGenerator.sitofp(v1.name);
+                v1 = new Value("%" + (LLVMGenerator.reg - 1), VarType.REAL);
+            }
+            if(v2.type == VarType.INT)
+            {
+                LLVMGenerator.sitofp(v2.name);
+                v2 = new Value("%" + (LLVMGenerator.reg - 1), VarType.REAL);
+            }
+            LLVMGenerator.sub_double(v2.name, v1.name);
+            stack.push(new Value("%" + (LLVMGenerator.reg - 1), VarType.REAL));
         }
     }
-
 
     @Override
     public void exitCastint(DwunastaParser.CastintContext ctx) {
@@ -388,7 +409,6 @@ public class LLVMActions extends DwunastaBaseListener {
     @Override
     public void exitRead(DwunastaParser.ReadContext ctx) {
         String ID = ctx.ID().getText();
-        //TODO double
         LLVMGenerator.scanf(set_variable(ID, VarType.INT, take_global));
     }
 
